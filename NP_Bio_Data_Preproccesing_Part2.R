@@ -87,6 +87,11 @@ psva_count$Visitors[psva_count$Park == "Sequoia and Kings Canyon National Parks"
 WSE <- 79047
 psva_count$Visitors[psva_count$Park == "Wrangell - St Elias National Park and Preserve"] <- WSE
 
+# Gates Of The Arctic National Park and Preserve
+# Grab value from the National Park Service site
+GoA <- 10047
+psva_count$Visitors[psva_count$Park == "Gates Of The Arctic National Park and Preserve"] <- GoA
+
 ## Put these values in the master table
 NP_master$TRV[NP_master$Park.Name == "Sequoia and Kings Canyon National Parks"] <- KCSQ
 NP_master$TRV[NP_master$Park.Name == "Wrangell - St Elias National Park and Preserve"] <- WSE
