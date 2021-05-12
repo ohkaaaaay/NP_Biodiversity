@@ -3,6 +3,7 @@
 # This dataset had to be analyzed separately the data would repeat in each row
 # Thus adding more weight and significance
 library(caret)
+library(ggplot2)
 psva_count <- read.csv("species_parks_subset.csv")
 str(psva_count)
 
@@ -14,14 +15,15 @@ summary(lm.subset)
 lm.subset2 <- lm(Visitors ~ Species, data=psva_count)
 summary(lm.subset2)
 # Interaction effect
-lm.subset3 <- lm(Visitors ~ Acres*Species, data=psva_count)
+lm.subset3 <- lm(Visitors ~ Acres+Species+Acres*Species, data=psva_count)
 summary(lm.subset3)
 # Compare AIC
 AIC(lm.subset)
 AIC(lm.subset2) # Best model: Species only
 AIC(lm.subset3)
 # Plot the species vs. visitors
-plot(psva_count$Species, psva_count$Visitors)
+plot(psva_count$Species, psva_count$Visitors,
+     xlab='Number of Species', ylab="Number of Visitors")
 abline(lm.subset2, col="red")
 
 #############################################################
@@ -99,6 +101,7 @@ np.knn.pp <- train(Visitors ~ ., data=NP.train, method = "knn",
                   preProcess=c("BoxCox", "center", "scale"),
                   tuneGrid=k.grid, trControl=ctrl)
 np.knn.pp # k=9
+plot(np.knn.pp)
 
 #############################################################
 ## GAM Smoothing Spline
@@ -121,9 +124,9 @@ c.models<- list("LM Base"=np.lm, "LM PreProc"=np.lm.pp,
 NP.resamples <- resamples(c.models)
 summary(NP.resamples)
 
-# Plot performances
+# Plot training RMSE performance
 bwplot(NP.resamples, metric="RMSE")
-# Disregard outliers
+# Plot training R^2 performance
 bwplot(NP.resamples, metric="Rsquared")
 
 # Evaluate differences in model and see if their are statistical significant differnces
@@ -138,4 +141,34 @@ testPerformance <- function(model) {
 }
 
 # Apply the test performance function against each of the models in the list
-lapply(c.models, testPerformance)
+test.mod <- lapply(c.models, testPerformance)
+
+# Variable setup
+model_test <- c("LM Base", "LM PreProc", "kNN PreProc", "GAM SS")
+RMSE_test <- c(test.mod$`LM Base`[[1]], test.mod$`LM PreProc`[[1]],
+               test.mod$`kNN PreProc`[[1]],
+               test.mod$`GAM Smoothing Spline`[[1]])
+R2_test <- c(test.mod$`LM Base`[[2]], test.mod$`LM PreProc`[[2]],
+               test.mod$`kNN PreProc`[[2]],
+             test.mod$`GAM Smoothing Spline`[[2]])
+
+# Plot training RMSE performance
+ggplot(data=data.frame(model_test, RMSE_test),
+       aes(x=model_test, y=RMSE_test, fill=model_test)) +
+  geom_bar(stat="identity", colour="black") +
+  labs(y="RMSE", x="Models") +
+  labs(fill = "Models") +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x=element_blank()) +
+  scale_fill_brewer(palette="OrRd")
+# Plot training R^2 performance
+ggplot(data=data.frame(model_test, R2_test),
+       aes(x=model_test, y=R2_test, fill=model_test)) +
+  geom_bar(stat="identity", colour="black") +
+  labs(y="R^2", x="Models") +
+  labs(fill = "Models") +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x=element_blank()) +
+  scale_fill_brewer(palette="PuBuGn")

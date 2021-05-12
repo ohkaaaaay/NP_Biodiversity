@@ -1,5 +1,5 @@
 #############################################################
-### Exploring the number of visitors for each year
+### EDA - Exploring the number of visitors for each year
 # Read CSV
 NP_visit <- read.csv("Annual_NP_Visitation.csv")
 

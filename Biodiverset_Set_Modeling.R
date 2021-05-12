@@ -1,5 +1,6 @@
 ### Focus: Biodiversity Data Set
 library(caret)
+library(ggplot2)
 NP_master <- read.csv("species_parks_v2.csv")
 NP_master <- NP_master[c(8,14:19)]
 # Make "" rows to NA
@@ -122,7 +123,6 @@ highlyCorDescr <- findCorrelation(NP.cor1, cutoff=0.75) # No correlation
 set.seed(1)
 np.lm.cor <- train(TRV ~ ., data=NP.train1[,-highlyCorDescr], 
                   method = "lm", trControl=ctrl)
-summary(np.lm.cor)
 
 #############################################################
 ## Lasso & Ridge Regression
@@ -168,14 +168,13 @@ library(pls)
 set.seed(1)
 np.pcr <- train(TRV ~ ., data=NP.train1, method = "pcr", trControl=ctrl,
                 preProcess=c("BoxCox", "scale", "center"))
-np.pcr # ncomp=3
+np.pcr # ncomp=1
 
-## PLS wih pre-process
+## PLS with pre-process
 set.seed(1)
 np.pls <- train(TRV ~ ., data=NP.train1, method = "pls", trControl=ctrl,
                 preProcess=c("BoxCox", "scale", "center"))
-np.pls # ncomp=3 
-
+np.pls # ncomp=3
 
 #############################################################
 ### Random Forest
@@ -229,7 +228,7 @@ ntree[which.min(ntree[,2])] # ntree=100 has the min. RMSE
 library(rattle)
 getTree(np.rf.500$finalModel)
 # Plot the error vs. number of trees
-plot(np.rf.500$finalModel)
+plot(np.rf.500$finalModel, main='')
 
 #############################################################
 ### GAM Smoothing Spline - Significant Variables Selected
@@ -261,7 +260,8 @@ np.models <- list("LM Base"=np.lm,
                  "LM PreProc"=np.lm.pp,
                  "LM Cor Rmved"=np.lm.cor,
                  "Lasso PreProc"=np.lasso.pp,
-                 "RR PreProc"=np.rr.pp, "PCR PreProc"=np.pcr,
+                 "RR PreProc"=np.rr.pp,
+                 "PCR PreProc"=np.pcr,
                  "PLS PreProc"=np.pls,
                  "GAM Smoothing Spline"=np.ss.pp,
                  "Random Forest"=np.rf.100)
@@ -281,10 +281,48 @@ summary(NP.diff) # Lower diagonal is p-value of differences
 # Creating function called testPerformance to run against each model
 # To measure test performance
 testPerformance <- function(model) {
-  postResample(predict(model, NP.test1), NP.test1$TRV)
+  postResample(predict(model, NP.train1), NP.train1$TRV)
 }
 
 # Apply the test performance function against each of the models in the list
-lapply(np.models, testPerformance)
+test.mod <- lapply(np.models, testPerformance)
 
+# Variable setup
+model_test <- c("LM Base", "LM Selected", "LM PreProc", "LM Cor Rmved",
+                "Lasso PreProc", "RR PreProc", "PCR PreProc", "PLS PreProc",
+                "GAM Smoothing Spline", "Random Forest")
+RMSE_test <- c(test.mod$`LM Base`[[1]], test.mod$`LM Selected`[[1]],
+               test.mod$`LM PreProc`[[1]], test.mod$`LM Cor Rmved`[[1]],
+               test.mod$`Lasso PreProc`[[1]], test.mod$`RR PreProc`[[1]],
+               postResample(predict(np.pcr, NP.train1), NP.train1$TRV)[[1]],
+               test.mod$`PLS PreProc`[[1]],
+               test.mod$`GAM Smoothing Spline`[[1]],
+               test.mod$`Random Forest`[[1]])
+R2_test <- c(test.mod$`LM Base`[[2]], test.mod$`LM Selected`[[2]],
+             test.mod$`LM PreProc`[[2]], test.mod$`LM Cor Rmved`[[2]],
+             test.mod$`Lasso PreProc`[[2]], test.mod$`RR PreProc`[[2]],
+             postResample(predict(np.pcr, NP.train1), NP.train1$TRV)[[2]],
+             test.mod$`PLS PreProc`[[2]],
+             test.mod$`GAM Smoothing Spline`[[2]],
+             test.mod$`Random Forest`[[2]])
 
+# Plot training RMSE performance
+ggplot(data=data.frame(model_test, RMSE_test),
+       aes(x=model_test, y=RMSE_test, fill=model_test)) +
+  geom_bar(stat="identity", colour="black") +
+  labs(y="RMSE") +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x=element_blank()) +
+  labs(fill = "Models") +
+  scale_fill_brewer(palette="OrRd")
+# Plot training R^2 performance
+ggplot(data=data.frame(model_test, R2_test),
+       aes(x=model_test, y=R2_test, fill=model_test)) +
+  geom_bar(stat="identity", colour="black") +
+  labs(y="R^2", x="Model") +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x=element_blank()) +
+  labs(fill = "Models") +
+  scale_fill_brewer(palette="PuBuGn")
